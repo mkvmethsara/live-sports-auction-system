@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NSL Auction — Controller</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { color-scheme: dark; }
+    body { background: #090c13; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+    .panel { background: rgba(18, 24, 36, .88); border: 1px solid rgba(148, 163, 184, .15); box-shadow: 0 18px 55px rgba(0, 0, 0, .25); }
+    .input { background: #0d1320; border: 1px solid #263247; border-radius: .75rem; padding: .75rem 1rem; color: #e2e8f0; outline: none; width: 100%; }
+    .input:focus { border-color: #22d3ee; box-shadow: 0 0 0 3px rgba(34, 211, 238, .12); }
+    .bid-btn { transition: transform .15s ease, background .15s ease, border-color .15s ease; }
+    .bid-btn:hover { transform: translateY(-2px); border-color: #22d3ee; background: rgba(8, 145, 178, .22); }
+    .toast { transform: translateY(15px); opacity: 0; pointer-events: none; transition: all .2s ease; }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 1.5rem; background: rgba(2, 6, 23, .78); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+    .modal.open { opacity: 1; pointer-events: auto; }
+    .modal-panel { width: min(720px, 100%); max-height: 85vh; overflow: auto; }
+  </style>
+</head>
+<body class="min-h-screen text-slate-100">
+  <header class="border-b border-slate-800 bg-slate-950/90">
+    <div class="mx-auto flex max-w-[1500px] items-center justify-between px-6 py-4">
+      <div>
+        <div class="flex items-center gap-3">
+          <img src="MAIN LOGO.png" alt="Narawala Super League" class="h-12 w-12 rounded-xl object-contain">
+          <div><p class="text-xs font-bold uppercase tracking-[.35em] text-cyan-400">Narawala Super League</p>
+          <h1 class="mt-1 text-2xl font-black tracking-tight">NSL Auction Control Room</h1></div>
+        </div>
+      </div>
+      <div class="flex items-center gap-4 text-xs uppercase tracking-widest text-slate-400">
+        <button id="walletButton" type="button" class="rounded-lg border border-cyan-400/50 bg-cyan-950/40 px-3 py-2 font-bold text-cyan-300 transition hover:bg-cyan-400/15">Team wallets</button>
+        <span class="h-2 w-2 animate-pulse rounded-full bg-emerald-400"></span>
+        Live link active
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto grid max-w-[1500px] gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_390px]">
+    <section class="space-y-6">
+      <div class="panel rounded-2xl p-6">
+        <div class="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[.28em] text-slate-500">Live lot management</p>
+            <h2 class="mt-1 text-xl font-bold">Current player</h2>
+          </div>
+          <div class="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300" id="lotStatus">LOT 01 / 54</div>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="block">
+            <span class="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-400">Active player</span>
+            <select id="playerSelect" class="input"></select>
+          </label>
+          <label class="block">
+            <span class="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-400">Holding team</span>
+            <select id="teamSelect" class="input"></select>
+          </label>
+        </div>
+        <div class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-950/70 p-4">
+          <div>
+            <p class="text-xs uppercase tracking-widest text-slate-500">Player</p>
+            <p id="playerSummary" class="mt-1 font-semibold text-cyan-100">Player 01</p>
+          </div>
+          <div class="text-right">
+            <p class="text-xs uppercase tracking-widest text-slate-500">Current bid</p>
+            <p id="bidSummary" class="font-mono text-2xl font-bold text-amber-300">0</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel rounded-2xl p-6">
+        <div class="mb-5 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[.28em] text-slate-500">Bid controls</p>
+            <h2 class="mt-1 text-xl font-bold">Strict bid controls</h2>
+          </div>
+          <div class="flex gap-2">
+            <button id="undoBid" class="rounded-lg border border-amber-700/70 px-3 py-2 text-xs font-bold uppercase tracking-widest text-amber-300 transition hover:border-amber-300 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-40">Undo last bid</button>
+            <button id="resetBid" class="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold uppercase tracking-widest text-slate-400 transition hover:border-amber-300 hover:text-amber-200">Reset</button>
+          </div>
+        </div>
+        <div class="rounded-xl border border-cyan-400/20 bg-cyan-950/20 p-4 text-sm text-cyan-100">
+          <span class="text-slate-400">Next bid:</span> <strong id="nextBid">2,000 LKR</strong>
+          <span class="ml-3 text-xs text-slate-500">2K → 20K: +2K · 20K → 50K: +2.5K · 50K → 150K: +5K · 150K → 300K: +10K</span>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-3">
+          <button id="bidBtn" class="bid-btn rounded-xl border border-cyan-900 bg-cyan-950/40 py-4 font-mono font-bold text-cyan-200">Raise to next bid</button>
+          <span class="text-xs uppercase tracking-widest text-slate-500">2,000 LKR opening bid</span>
+        </div>
+        <div class="mt-6 grid gap-3 sm:grid-cols-2">
+          <button id="soldBtn" class="rounded-xl bg-emerald-500 px-5 py-5 text-lg font-black uppercase tracking-[.18em] text-emerald-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400">✓ Sold</button>
+          <button id="unsoldBtn" class="rounded-xl bg-rose-600 px-5 py-5 text-lg font-black uppercase tracking-[.18em] text-white shadow-lg shadow-rose-600/20 transition hover:bg-rose-500">✕ Unsold</button>
+        </div>
+      </div>
+
+      <div class="panel rounded-2xl p-6">
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[.28em] text-slate-500">Auction ledger</p>
+            <h2 class="mt-1 text-xl font-bold">Recent results</h2>
+          </div>
+          <button id="clearAuction" class="text-xs font-bold uppercase tracking-widest text-rose-300 hover:text-rose-200">Clear all</button>
+        </div>
+        <div id="results" class="divide-y divide-slate-800 text-sm"></div>
+      </div>
+    </section>
+
+    <aside class="panel h-fit rounded-2xl p-5 xl:sticky xl:top-6">
+      <div class="mb-5 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[.28em] text-slate-500">Franchise table</p>
+          <h2 class="mt-1 text-xl font-bold">Purse & squads</h2>
+        </div>
+        <span class="rounded-md bg-slate-800 px-2 py-1 font-mono text-xs text-slate-400">6 TEAMS</span>
+      </div>
+      <div class="overflow-hidden rounded-xl border border-slate-800">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-950 text-[10px] uppercase tracking-widest text-slate-500">
+            <tr><th class="px-3 py-3">Franchise</th><th class="px-3 py-3 text-right">Purse</th><th class="px-3 py-3 text-right">Squad</th><th class="px-3 py-3 text-right">View</th></tr>
+          </thead>
+          <tbody id="teamTable" class="divide-y divide-slate-800"></tbody>
+        </table>
+      </div>
+      <p class="mt-4 text-xs leading-relaxed text-slate-500">Controller and projector tabs are synchronized locally through BroadcastChannel. Keep both files open in the same browser.</p>
+    </aside>
+  </main>
+  <div id="toast" class="toast fixed bottom-6 right-6 rounded-xl border border-cyan-400/30 bg-slate-900 px-4 py-3 text-sm font-semibold text-cyan-100 shadow-2xl"></div>
+  <script>
+    const CHANNEL_NAME = "nsl_auction_channel";
+    const STORAGE_KEY = "nsl_auction_state";
+    const STARTING_BUDGET = 300000, MAX_SQUAD_SIZE = 9, MAX_BID = 300000;
+    const teams = [
+      { name: "GreenWin", logo: "TEAM LOGOS/greenwin.png" }, { name: "LM", logo: "TEAM LOGOS/lm.png" },
+      { name: "Luckwin", logo: "TEAM LOGOS/luckwin.png" }, { name: "RK", logo: "TEAM LOGOS/RK.png" },
+      { name: "Siena", logo: "TEAM LOGOS/siena.png" }, { name: "Udayanga Motors", logo: "TEAM LOGOS/udayanga.png" }
+    ];
+    const players = Array.from({ length: 54 }, (_, i) => { const number = String(i + 1).padStart(2, "0"); return { id: i + 1, name: `Player ${number}`, image: `PLAYER LIST/PROFILE LIST-${number}.jpg`, fallback: `PLAYER LIST/PROFILE LIST -${number}.jpg` }; });
+    const defaultState = { activePlayerId: "", holdingTeam: "", currentBid: 0, bidHistory: [], results: [], teams: Object.fromEntries(teams.map(({ name }) => [name, { budget: STARTING_BUDGET, squad: 0 }])) };
+    const channel = new BroadcastChannel(CHANNEL_NAME), $ = id => document.getElementById(id);
+    let state = loadState();
+    const money = value => `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value)} LKR`;
+    const nextBid = value => value < 20000 ? value + 2000 : value < 50000 ? value + 2500 : value < 150000 ? value + 5000 : value < MAX_BID ? value + 10000 : MAX_BID;
+    function loadState() { try { const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); if (!saved) return structuredClone(defaultState); const loaded = { ...structuredClone(defaultState), ...saved, bidHistory: Array.isArray(saved.bidHistory) ? saved.bidHistory : [], teams: { ...structuredClone(defaultState.teams), ...saved.teams } }; if (!loaded.currentBid) loaded.holdingTeam = ""; return loaded; } catch (error) { console.error("Unable to load NSL auction state", error); return structuredClone(defaultState); } }
+    function saveAndBroadcast(event = "state") { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); channel.postMessage({ event, state }); render(); }
+    function render() {
+      const player = players.find(item => item.id === Number(state.activePlayerId));
+      $("playerSelect").value = player ? player.id : ""; $("teamSelect").value = state.holdingTeam || ""; $("playerSummary").textContent = player ? player.name : "Select a player";
+      $("bidSummary").textContent = money(state.currentBid); $("nextBid").textContent = state.currentBid >= MAX_BID ? "Maximum reached" : money(nextBid(state.currentBid));
+      $("lotStatus").textContent = player ? `LOT ${String(player.id).padStart(2, "0")} / 54` : "SELECT PLAYER";
+      $("bidBtn").disabled = state.currentBid >= MAX_BID; $("bidBtn").classList.toggle("opacity-50", state.currentBid >= MAX_BID);
+      $("undoBid").disabled = !state.bidHistory.length;
+      $("teamTable").innerHTML = teams.map(({ name, logo }) => { const info = state.teams[name]; return `<tr class="bg-slate-900/50"><td class="px-3 py-3 font-semibold text-slate-200"><img src="${logo}" class="mr-2 inline-block h-7 w-7 object-contain" alt="">${name}</td><td class="px-3 py-3 text-right font-mono text-amber-300">${money(info.budget)}</td><td class="px-3 py-3 text-right font-mono text-cyan-300">${info.squad}/${MAX_SQUAD_SIZE}</td><td class="px-3 py-3 text-right"><button type="button" data-roster-team="${name}" class="rounded-md border border-cyan-800 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-cyan-300 hover:border-cyan-400 hover:text-cyan-100">Players</button></td></tr>`; }).join("");
+      $("results").innerHTML = state.results.length ? state.results.slice(0, 8).map(result => `<div class="flex items-center justify-between gap-3 py-3"><div><p class="font-semibold">${result.player}</p><p class="text-xs text-slate-500">${result.team} · ${result.status}</p></div><span class="font-mono font-bold ${result.status === "SOLD" ? "text-emerald-300" : "text-rose-300"}">${result.status === "SOLD" ? money(result.amount) : "—"}</span></div>`).join("") : `<p class="py-8 text-center text-slate-500">No results recorded yet.</p>`;
+    }
+    function toast(message) { $("toast").textContent = message; $("toast").classList.add("show"); setTimeout(() => $("toast").classList.remove("show"), 2200); }
+    function availablePlayers() { const sold = new Set(state.results.filter(result => result.status === "SOLD").map(result => result.playerId)); return players.filter(player => !sold.has(player.id)); }
+    function renderPlayerOptions() { const available = availablePlayers(); $("playerSelect").innerHTML = `<option value="">Select player</option>${available.map(player => `<option value="${player.id}">${player.name}</option>`).join("")}`; }
+    renderPlayerOptions();
+    $("teamSelect").innerHTML = `<option value="">Select winning team</option>${teams.map(({ name }) => `<option value="${name}">${name}</option>`).join("")}`;
+    $("playerSelect").addEventListener("change", event => { state.activePlayerId = Number(event.target.value); state.currentBid = 0; state.bidHistory = []; state.holdingTeam = ""; saveAndBroadcast("player"); });
+    $("teamSelect").addEventListener("change", event => { state.holdingTeam = event.target.value; saveAndBroadcast("team"); });
+    $("bidBtn").addEventListener("click", () => { const bid = nextBid(state.currentBid); if (bid > MAX_BID) return toast("Maximum bid is 300,000 LKR."); state.bidHistory.push(state.currentBid); state.currentBid = bid; saveAndBroadcast("bid"); });
+    $("undoBid").addEventListener("click", () => { if (!state.bidHistory.length) return; state.currentBid = state.bidHistory.pop(); saveAndBroadcast("undo"); toast("Last bid undone."); });
+    $("resetBid").addEventListener("click", () => { state.currentBid = 0; state.bidHistory = []; saveAndBroadcast("bid"); });
+    $("soldBtn").addEventListener("click", () => {
+      const team = state.teams[state.holdingTeam], player = players.find(item => item.id === Number(state.activePlayerId));
+      if (!player) return toast("Select a player before marking the player sold."); if (!state.holdingTeam) return toast("Select the winning team before marking the player sold."); if (state.currentBid < 2000) return toast("The opening bid is 2,000 LKR."); if (state.results.some(result => result.playerId === player.id)) return toast("This player already has a result.");
+      if (team.squad >= MAX_SQUAD_SIZE) return toast(`${state.holdingTeam} has a full squad.`); if (team.budget < state.currentBid) return toast("Bid exceeds the selected team's purse.");
+      team.budget -= state.currentBid; team.squad += 1; state.results.unshift({ playerId: player.id, player: player.name, team: state.holdingTeam, amount: state.currentBid, status: "SOLD", time: Date.now() });
+      const winningTeam = state.results[0].team; state.activePlayerId = ""; state.currentBid = 0; state.bidHistory = []; state.holdingTeam = ""; renderPlayerOptions(); saveAndBroadcast("sold"); toast(`${player.name} sold to ${winningTeam}`);
+    });
+    $("unsoldBtn").addEventListener("click", () => { const player = players.find(item => item.id === Number(state.activePlayerId)); if (!player) return toast("Select a player before marking unsold."); if (state.results.some(result => result.playerId === player.id)) return toast("This player already has a result."); state.results.unshift({ playerId: player.id, player: player.name, team: "—", amount: 0, status: "UNSOLD", time: Date.now() }); state.activePlayerId = ""; state.currentBid = 0; state.bidHistory = []; state.holdingTeam = ""; saveAndBroadcast("unsold"); toast(`${player.name} marked unsold. Select the next player.`); });
+    $("clearAuction").addEventListener("click", () => { if (!confirm("Reset all sold players, purses, and results?")) return; state = structuredClone(defaultState); renderPlayerOptions(); saveAndBroadcast("reset"); toast("NSL auction state reset."); });
+    channel.onmessage = event => { if (event.data?.state) { state = event.data.state; render(); } };
+    window.addEventListener("storage", event => { if (event.key === STORAGE_KEY) { state = loadState(); render(); } });
+    $("walletButton").addEventListener("click", () => channel.postMessage({ command: "wallet", open: true }));
+    $("teamTable").addEventListener("click", event => {
+      const button = event.target.closest("[data-roster-team]");
+      if (button) channel.postMessage({ command: "roster", team: button.dataset.rosterTeam });
+    });
+    renderPlayerOptions(); render();
+  </script>
+</body>
+</html>
